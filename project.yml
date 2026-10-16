@@ -1,0 +1,524 @@
+name: Sustain
+options:
+  bundleIdPrefix: com.sustainapp
+  deploymentTarget:
+    iOS: "17.0"
+    # Added 2026-08-02 for the SustainWatch companion app target. watchOS 10 is
+    # the modern single-target watch app model (no separate WatchKit Extension
+    # target needed, unlike pre-watchOS 7) — matches the app's own iOS 17
+    # baseline in recency.
+    watchOS: "10.0"
+  createIntermediateGroups: true
+  developmentLanguage: en
+
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    IPHONEOS_DEPLOYMENT_TARGET: "17.0"
+    TARGETED_DEVICE_FAMILY: "1"
+    ENABLE_PREVIEWS: "YES"
+    ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+    ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+
+packages:
+  RevenueCat:
+    url: https://github.com/RevenueCat/purchases-ios
+    from: 5.81.1
+  # Added 2026-08-01 for "Continue with Google" alongside Sign in with Apple.
+  # This is the package Supabase's own Swift guidance names for native Google
+  # sign-in — the flow hands Google's ID token to the SAME
+  # `/auth/v1/token?grant_type=id_token` endpoint AuthManager already uses for
+  # Apple, which is why adding a second provider was a small change rather than
+  # a parallel auth stack. See AuthManager.completeGoogleSignIn.
+  GoogleSignIn:
+    url: https://github.com/google/GoogleSignIn-iOS
+    from: 8.0.0
+  # Added 2026-08-12 to close the "TelemetryDeck or any analytics — still not
+  # started" gap PROJECT_HANDOFF.md's own "Not started" list had flagged
+  # since the original handoff — see `Services/AnalyticsManager.swift`'s
+  # header comment for the privacy reasoning behind picking this vendor
+  # specifically (no IDFA, no ad tracking, on-device-hashed user identifier).
+  # `from: 2.0.0` deliberately, not a guessed-current patch version — 2.0 is
+  # when the package was renamed from "TelemetryClient" to "TelemetryDeck"
+  # (the "Grand Rename," see telemetrydeck.com/docs/articles/grand-rename),
+  # which is the API surface this file's code below is written against
+  # (`TelemetryDeck.Config`, `TelemetryDeck.initialize`, `TelemetryDeck.signal`).
+  # SPM resolves to the latest compatible release from there automatically —
+  # run `xcodegen generate` then let Xcode resolve packages to pick that up.
+  TelemetryDeck:
+    url: https://github.com/TelemetryDeck/SwiftSDK
+    from: 2.0.0
+
+targets:
+  Sustain:
+    type: application
+    platform: iOS
+    sources:
+      - path: Sustain
+        excludes:
+          - "**/*.md"
+          # Local StoreKit testing config (see Sustain.storekit) — a dev-only tool
+          # for exercising the paywall without real sandbox purchases, not
+          # something the shipping app needs bundled inside it. Kept on disk for
+          # the next time local purchase testing is needed; just not part of the
+          # app target's Copy Bundle Resources.
+          - "**/*.storekit"
+    configFiles:
+      Debug: Sustain/Secrets.xcconfig
+      Release: Sustain/Secrets.xcconfig
+    dependencies:
+      - package: RevenueCat
+        product: RevenueCat
+      - package: GoogleSignIn
+        product: GoogleSignIn
+      - package: TelemetryDeck
+        product: TelemetryDeck
+      # Embeds the widget/Live Activity extension into the app bundle. Added
+      # 2026-08-02 for the Lock Screen widget + Live Activity feature — see
+      # Sustain-Subscription-Conversion-Report-2026-08.md's #1 priority item.
+      - target: SustainWidgetExtension
+        embed: true
+      # Embeds the Watch companion app. Added 2026-08-02 for report priority
+      # #4 (single-tap dose logging from the wrist).
+      - target: SustainWatch
+        embed: true
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.sustainapp.glp1
+        PRODUCT_NAME: Sustain
+        INFOPLIST_KEY_UILaunchScreen_Generation: "YES"
+        INFOPLIST_KEY_UIApplicationSceneManifest_Generation: "YES"
+        CODE_SIGN_STYLE: Automatic
+        DEVELOPMENT_ASSET_PATHS: ""
+        # Without this, Xcode only bundles the single default AppIcon image and
+        # silently drops the dark/tinted appearance variants added alongside it.
+        ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS: "YES"
+        # Reverted back to "1,2" (iPhone + iPad) after Apple rejected the 1.0.1
+        # upload with ITMS error 90101: "This bundle does not support one or
+        # more of the devices supported by the previous app version." Once 1.0
+        # (3) shipped declaring iPad support, Apple's platform rules (QA1623)
+        # forbid narrowing device support in a later update without publishing
+        # under a new bundle ID. So Sustain keeps iPad support going forward;
+        # see UISupportedInterfaceOrientations~ipad below for the accompanying
+        # landscape support added for iPad specifically.
+        TARGETED_DEVICE_FAMILY: "1,2"
+      # SCREENSHOT_MODE, Debug-only — enables `EntitlementManager`/`AuthManager`/
+      # `DashboardView`'s `#if SCREENSHOT_MODE` branches (fake premium status,
+      # seeded realistic-looking data, skipped sign-in) so App Store marketing
+      # screenshots can be captured on the Simulator without touching a real
+      # linked account or real StoreKit sandbox sign-in. Scoped to the `Debug`
+      # config specifically via XcodeGen's per-config `settings.configs` key —
+      # `$(inherited)` preserves whatever Xcode's own default Debug flags
+      # already are, this just appends one more. **This key must never be
+      # added under `Release` below or in `base` above** — either would ship
+      # fake premium status to real users. Toggle by commenting/uncommenting
+      # `SCREENSHOT_MODE` in the line below and running `xcodegen generate`,
+      # rather than a manual, undocumented Xcode Build Settings edit that
+      # nobody else working on this project would see.
+      # Toggled off 2026-08-12 — the referral screen needs a real signed-in
+      # Supabase session (SCREENSHOT_MODE fakes `isSignedIn` but never the
+      # actual `session`/access token), so capturing that one screenshot
+      # requires a normal build. To turn Screenshot Mode back on for the rest
+      # of the Simulator captures, uncomment this whole `configs:` block
+      # (YAML needs `Debug:` to map to something, so it can't be left with
+      # only a commented-out line under it) and run `xcodegen generate`:
+      # configs:
+      #   Debug:
+      #     SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) SCREENSHOT_MODE"
+    info:
+      path: Sustain/Info.plist
+      properties:
+        CFBundleDisplayName: Sustain
+        # 1.0 (2) was the rejected build reviewed 2026-07-28 (Guideline 1.4.1 +
+        # 3.1.2(c) — see APP_REVIEW_NOTES.md and CHANGELOG.md). 1.0 (3) was the
+        # accepted, now-live resubmission. Bumped to 1.0.1 (4) here for the
+        # iPhone-only device-family fix (App Store Connect won't let a new
+        # version reuse "1.0", since that version number is already used by an
+        # already-approved release) — see the TARGETED_DEVICE_FAMILY fix above.
+        # Explicit here (rather than left to whatever XcodeGen/Xcode defaults to)
+        # so the build number actually tracked in source control matches what's
+        # uploaded — it wasn't before, which is how it silently sat at "1" in the
+        # generated Info.plist even after two real submissions.
+        #
+        # Bumped again to 2.0 (6) per explicit request for this release
+        # (2026-08-01), superseding the 1.1.0 (5) bump above from earlier the
+        # same day — same underlying rationale (account creation/sign-in with
+        # real cross-device cloud sync, specific-days-of-week dose scheduling,
+        # a redesigned first-run experience, a branded camera viewfinder
+        # replacing the stock system picker), just labeled as the major
+        # version the explicit request called for rather than a minor one.
+        # Build number keeps incrementing from the real submission history
+        # above (1.0 (3) live, 1.0.1 (4) live, 1.1.0 (5) never submitted) —
+        # each new build number has to be higher than any build previously
+        # uploaded to App Store Connect, even ones that were never released.
+        #
+        # Bumped to 2.0.1 (7) on 2026-08-01, after 2.0 (6) was accepted and went
+        # live earlier the same day. A point release, not a major one: 2.0's
+        # feature set is unchanged, and everything here is either a fix or an
+        # additive option — Continue with Google alongside Sign in with Apple,
+        # RevenueCat's subscriber identity tied to the Supabase account, the
+        # account-deletion billing warning Apple's own guidance requires, the
+        # native StoreKit manage-subscriptions sheet, and the subscription
+        # status/renewal-date card. See CHANGELOG.md for the full list.
+        # Bumped to 2.1 (8) on 2026-08-06 for this release: specific-days
+        # dose scheduling refinements, lab result trend/biomarker tracking,
+        # progress photos with auto before/after comparison, the AI camera
+        # viewfinder, and the CloudSyncManager/AuthManager fixes from this
+        # session's deployment-readiness pass — see CHANGELOG.md. Editing
+        # this value (not just Sustain/Info.plist directly) matters: this
+        # project.yml is what XcodeGen regenerates the real Info.plist from,
+        # so a plist-only edit silently reverts back to whatever's written
+        # here the next time `xcodegen generate` runs — confirmed the hard
+        # way this session, when an earlier direct-to-plist 2.1 (8) bump
+        # reverted back to 2.0.1 (7) between sessions.
+        # Bumped again to build 9 on 2026-08-06, same version string (2.1) —
+        # build 8 was already uploaded and validated in App Store Connect
+        # (Watch app icon, CloudSyncManager @MainActor fix, progress-photo
+        # distortion fixes), so a same-numbered re-upload for the Settings
+        # privacy-copy fix (see CHANGELOG.md's "Three further features"
+        # entry) would be rejected outright — build numbers must strictly
+        # increase for a given bundle ID, even across builds that were never
+        # released, same rule this file's own history already notes above.
+        #
+        # Corrected to "10" same day, after archiving and uploading: Xcode's
+        # own automatic build-number management during Organizer → Distribute
+        # App silently uploaded build 10, not the 9 written here and in
+        # Info.plist — it does this when it wants to guarantee no collision
+        # with anything already registered in App Store Connect for this
+        # bundle ID, and it does not write the bumped number back to project
+        # files. Harmless (10 > 8 still satisfies ASC's strictly-increasing
+        # rule, and the upload succeeded), but this file needs to say what
+        # was actually shipped, not what was requested, so the next person
+        # archiving doesn't collide with 10 by starting from a stale "9" here.
+        #
+        # 2.1 (10) was accepted by App Review and is live. Bumped to 2.1.1
+        # (11) on 2026-08-07 for a real, user-reported fast-follow fix, not a
+        # new feature set: the Apple Watch app's `WidgetSnapshot`/
+        # `PendingDoseLogQueue` App-Group storage never actually synced across
+        # a real iPhone-Watch pairing (App Group containers are per-device, not
+        # iCloud-synced), so the Watch app was permanently non-functional
+        # cross-device on every real pairing since it shipped — see
+        # CHANGELOG.md's "Watch app was non-functional cross-device on every
+        # real pairing" entry and APP_REVIEW_NOTES.md §13. A patch version
+        # bump (2.1 -> 2.1.1), not just a build number bump, since this is a
+        # genuine bugfix release or the shipped feature, not additive work.
+        #
+        # Bumped to 2.2 (12) on 2026-08-07, same day, for real additive
+        # feature work landing on top of 2.1.1 (11): the first slice of the
+        # behavior-change layer (setback-moment reframing, a new
+        # streak-reset acknowledgment, a supportive overdue-dose caption,
+        # and a new `MedicalSourceTopic.consistency` citations topic) — see
+        # CHANGELOG.md's "Behavior-change layer: reframing setback moments"
+        # entry. A minor version bump, not a patch, matching this project's
+        # own convention that a patch (2.1 -> 2.1.1) is reserved for
+        # fix-only releases with zero feature changes — this one has real,
+        # user-visible new behavior, so it isn't that.
+        #
+        # 2.1.1 (11) was approved by App Review and is now the live version
+        # as of 2026-08-09 — see CHANGELOG.md's "2.1.1 (build 11) approved
+        # and live" entry. 2.2 (12) is still in source, not yet archived or
+        # uploaded, and has since accumulated real additional feature work
+        # beyond the behavior-change layer described above (visit-ready PDF
+        # export, sleep/HRV recovery correlation, AI-feature retention
+        # instrumentation, AI photo body-fat estimate) — see CHANGELOG.md
+        # for the current, complete list.
+        #
+        # 2.2 (12) was approved by App Review and is now the live version as
+        # of 2026-08-13. Bumped to 2.2.1 (13) the same day for the
+        # TelemetryDeck analytics instrumentation built after 2.2 was
+        # submitted (see CHANGELOG.md's "Analytics instrumentation
+        # (TelemetryDeck)" entry) — a patch bump, not minor, matching this
+        # project's own convention above: analytics has zero user-visible
+        # behavior change, purely backend instrumentation, so it's a
+        # fix/infra-style release the same way 2.1.1 was.
+        #
+        # 2.2.1 (13) was approved by App Review and submitted 2026-09-05.
+        # Bumped to 2.3 (14) the same day for real, user-visible feature work
+        # built directly from `marketing/Sustain-Subscription-Conversion-
+        # Research-2026-09.md`'s #1 recommendation: proactive AI pattern
+        # detection ("Pip Notices" — see `Services/PatternDetectionEngine.swift`),
+        # plus the paywall feature-list reorder and the post-trial AI-estimate
+        # prompt from that same research doc's Part 8 item 3. A minor bump,
+        # not a patch, per this project's own convention: this has real,
+        # user-visible new behavior (a new Dashboard card, a new proactive
+        # notification, a new paywall row, a new post-purchase prompt), the
+        # same category as 2.2's behavior-change-layer bump, not 2.2.1's
+        # backend-only one.
+        #
+        # 2.3 (14) was submitted 2026-09-05 and approved. Bumped to 2.4 (15) on
+        # 2026-09-27 for "Life After GLP-1" — built directly from this session's own
+        # `Sustain-GLP1-Market-PESTLE-FeatureGap-Report-2026-09.md` §15 (its single
+        # highest-priority finding): nearly three in four GLP-1 patients discontinue
+        # within two years, usually for cost/coverage reasons, and no reviewed
+        # competitor treats that as anything but churn. New: `MedicationProfile
+        # .isDiscontinued` status tracking (reversible), a dedicated
+        # `LifeAfterGLP1View` support screen (entirely free, not a Sustain+ gate —
+        # see that file's header comment for why), a new
+        # `PatternDetectionEngine.detectPostDiscontinuationRegain` heuristic reusing
+        # the existing "Pip Notices" premium gate, and a shareable "worth knowing"
+        # insurance-appeal-odds card built for organic reach. A minor bump, not a
+        # patch, same convention as every other release with real user-visible
+        # feature work.
+        CFBundleShortVersionString: "2.4"
+        CFBundleVersion: "15"
+        # Moved here from `INFOPLIST_KEY_*` build settings — this project uses a
+        # custom checked-in Info.plist (`info: path:` above), and confirmed via
+        # Xcode's own Info tab (the "iOS Target Properties" list) that
+        # INFOPLIST_KEY_* settings were never actually merging into it — neither
+        # key showed up there at all, which is exactly why Apple's validator kept
+        # seeing no orientations specified even after adding the build setting.
+        # `info.properties` entries are what XcodeGen actually writes literally
+        # into the real file, confirmed working by CFBundleVersion above landing
+        # correctly.
+        #
+        # iPhone stays portrait-only, which is how every screen in this app was
+        # actually designed and is left unchanged here. iPad gets its own
+        # orientation list (the `~ipad` suffix is an Apple-supported way to give
+        # a device-specific override of this same key) with all four
+        # orientations, since iPad support can no longer be dropped (see
+        # TARGETED_DEVICE_FAMILY above) and iPad users expect landscape to work.
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+        UISupportedInterfaceOrientations~ipad:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        # Left true: this only opts the app out of iPad Split View/Slide Over
+        # multitasking (forcing full-screen single-app mode), it does not
+        # restrict orientation. Given this UI was never built or tested against
+        # arbitrary multitasking widths (e.g. a ~320pt Slide Over pane), keeping
+        # full-screen-only is the safer choice until someone deliberately
+        # designs for multitasking sizes.
+        UIRequiresFullScreen: true
+        UILaunchScreen:
+          UIColorName: LaunchBackground
+        # Updated 2026-08-02 to also mention body fat / lean mass, added for the
+        # body composition trend feature — the usage description has to match
+        # what the app actually reads or App Review can flag the mismatch.
+        # Updated again 2026-08-07 for the sleep/HRV/resting-heart-rate
+        # recovery-correlation feature (see `RecoveryEntry.swift`) — same
+        # reasoning, same risk if left stale.
+        NSHealthShareUsageDescription: "Sustain reads your weight, dietary protein, body fat percentage, lean mass, sleep, heart rate variability, and resting heart rate from Health so your trends stay accurate without double entry."
+        NSHealthUpdateUsageDescription: "Sustain writes the weight and protein you log here to Health so your other health apps stay in sync."
+        # Updated 2026-08-03: these previously described only the food/protein
+        # photo estimate, which was the camera's single use at the time. Two
+        # more camera/library uses shipped since (progress photos, lab report
+        # import), and a purpose string that doesn't cover every actual use of
+        # the permission is a real Guideline 5.1.1 problem, not just imprecise
+        # copy. Both strings now enumerate all three.
+        # Updated 2026-08-08 to add the AI body-fat photo estimate (BodyScanView) as
+        # a fourth optional camera use — this project has twice before shipped with
+        # a stale purpose string after adding a new camera-based feature, so this
+        # gets updated in the same change that adds the feature, not after.
+        NSCameraUsageDescription: "Sustain uses your camera for four optional things you choose to do: estimate protein from a photo of your food, save a progress photo, read the values off a lab report, and estimate body fat from two photos. Body-fat estimate photos are never saved."
+        NSPhotoLibraryUsageDescription: "Sustain reads photos you pick from your library for three optional things you choose to do: estimate a meal's protein, save a progress photo, and read the values off a lab report."
+        # Added 2026-08-02 for VoiceInputButton (comp-027: hands-free logging).
+        # Both are required together — microphone access alone can capture
+        # audio, but SFSpeechRecognizer needs its own separate authorization
+        # to transcribe it.
+        NSMicrophoneUsageDescription: "Sustain uses your microphone so you can dictate notes instead of typing them."
+        NSSpeechRecognitionUsageDescription: "Sustain transcribes your speech to fill in notes fields and the Ask Sustain chat, on-device where your iPhone supports it."
+        ITSAppUsesNonExemptEncryption: false
+        # Required for `LiveActivityManager.swift`'s `Activity.request(...)` to
+        # succeed — without this key, ActivityKit silently refuses to start any
+        # Live Activity regardless of entitlements or user permission state.
+        NSSupportsLiveActivities: true
+        # Non-secret values: the Supabase anon key is designed to be public and
+        # embedded client-side (same model as a Firebase config) — the actual
+        # Anthropic API key lives only as a server-side secret on the
+        # anthropic-proxy Edge Function now, never in the app. See
+        # supabase/functions/anthropic-proxy/index.ts.
+        SupabaseFunctionURL: "$(SUPABASE_FUNCTION_URL)"
+        SupabaseAnonKey: "$(SUPABASE_ANON_KEY)"
+        # The project's root URL (e.g. https://<ref>.supabase.co), distinct
+        # from SupabaseFunctionURL above — AuthManager and CloudSyncManager
+        # need this to reach Supabase's own Auth (/auth/v1) and PostgREST
+        # (/rest/v1) APIs, which live at the project root, not under the one
+        # deployed Edge Function's path. See SupabaseConfig.swift.
+        SupabaseProjectURL: "$(SUPABASE_PROJECT_URL)"
+        RevenueCatAPIKey: "$(REVENUECAT_API_KEY)"
+        # Added 2026-08-12 — see AnalyticsManager.swift. Not a secret in the
+        # same sense as an API key with write/spend access (it's a public
+        # per-app identifier TelemetryDeck's own docs say is safe client-side,
+        # same category as RevenueCatAPIKey above), but routed through
+        # Secrets.xcconfig anyway for consistency with every other
+        # environment-specific value in this file.
+        TelemetryDeckAppID: "$(TELEMETRYDECK_APP_ID)"
+        # Google Sign-In (added 2026-08-01). GoogleClientID is the **iOS**
+        # OAuth client ID from the Google Cloud console; the separate *web*
+        # client ID is never used by the app itself, only pasted into the
+        # Supabase dashboard alongside this one. GoogleServerClientID is that
+        # web client ID, passed to GIDConfiguration as the server client ID so
+        # the ID token Google mints is audienced for Supabase to accept.
+        GoogleClientID: "$(GOOGLE_CLIENT_ID)"
+        GoogleServerClientID: "$(GOOGLE_SERVER_CLIENT_ID)"
+        # Google's SDK completes its flow by reopening the app on a custom URL
+        # scheme, which must be the *reversed* iOS client ID
+        # (com.googleusercontent.apps.NNNN-xxxx). Without this entry the
+        # sign-in sheet opens and then silently fails to return.
+        CFBundleURLTypes:
+          - CFBundleTypeRole: Editor
+            CFBundleURLSchemes:
+              - "$(GOOGLE_REVERSED_CLIENT_ID)"
+    entitlements:
+      path: Sustain/Sustain.entitlements
+      properties:
+        com.apple.developer.healthkit: true
+        com.apple.developer.healthkit.access: []
+        # Required for AuthManager.swift's Sign in with Apple flow (the only
+        # login method this app offers — see that file's header comment).
+        # Also needs enabling on the App ID itself in the Apple Developer
+        # portal (Certificates, Identifiers & Profiles -> Identifiers ->
+        # com.sustainapp.glp1 -> Capabilities -> Sign In with Apple) before
+        # this entitlement will actually build/sign — XcodeGen writes the
+        # entitlement file, but can't flip that portal-side toggle for you.
+        com.apple.developer.applesignin:
+          - Default
+        # Added 2026-08-02 so the main app can write the shared widget/Live
+        # Activity snapshot (`Shared/WidgetSnapshot.swift`) into a container
+        # `SustainWidgetExtension` can also read. Also needs the "App Groups"
+        # capability enabled for this App ID in the Apple Developer portal —
+        # same manual portal step already required for Sign In with Apple
+        # above; an entitlements-file change alone doesn't make this signable.
+        com.apple.security.application-groups:
+          - group.com.sustainapp.glp1
+
+  SustainWidgetExtension:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: SustainWidgetExtension
+      - path: Sustain/Shared
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.sustainapp.glp1.Widget
+        PRODUCT_NAME: SustainWidgetExtension
+        CODE_SIGN_STYLE: Automatic
+        TARGETED_DEVICE_FAMILY: "1,2"
+        SKIP_INSTALL: "YES"
+    # Uses a checked-in Info.plist via `info.path`, same as the main `Sustain`
+    # target — that target's own comment on this same pattern notes
+    # `INFOPLIST_KEY_*` build settings were confirmed NOT to merge into a
+    # custom checked-in plist, so `NSExtension` has to be set here instead.
+    info:
+      path: SustainWidgetExtension/Info.plist
+      properties:
+        CFBundleDisplayName: Sustain Widgets
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    entitlements:
+      path: SustainWidgetExtension/SustainWidgetExtension.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - group.com.sustainapp.glp1
+
+  SustainWatch:
+    type: application
+    platform: watchOS
+    sources:
+      - path: SustainWatch
+      # `DoseActivityAttributes.swift` is excluded here: it `import
+      # ActivityKit`, which is an iOS/iPadOS-only framework with no watchOS
+      # SDK counterpart. The Live Activity it defines is a Lock
+      # Screen/Dynamic Island concept that has no watchOS equivalent, so
+      # SustainWatch never needed this file in the first place — only
+      # `WidgetSnapshot.swift` (read for `WatchDoseView`) and
+      # `PendingDoseLogQueue.swift` (written by the "Log dose" button) from
+      # this folder actually apply to the Watch target.
+      - path: Sustain/Shared
+        excludes:
+          - "DoseActivityAttributes.swift"
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.sustainapp.glp1.watchkitapp
+        PRODUCT_NAME: SustainWatch
+        CODE_SIGN_STYLE: Automatic
+        TARGETED_DEVICE_FAMILY: "4"
+        SKIP_INSTALL: "YES"
+        ENABLE_PREVIEWS: "YES"
+    # Modern (watchOS 7+) single-target watch app: `WKApplication`/
+    # `WKCompanionAppBundleIdentifier` are the two keys that make this a real
+    # companion app rather than a standalone one, no separate WatchKit
+    # Extension target or storyboard needed.
+    info:
+      path: SustainWatch/Info.plist
+      properties:
+        CFBundleDisplayName: Sustain
+        WKApplication: true
+        WKCompanionAppBundleIdentifier: com.sustainapp.glp1
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+    entitlements:
+      path: SustainWatch/SustainWatch.entitlements
+      properties:
+        # Same App Group as the main app and the widget extension — lets the
+        # Watch app read `WidgetSnapshot` and write to `PendingDoseLogQueue`.
+        # Also needs the "App Groups" capability enabled for this watch app's
+        # own App ID in the Apple Developer portal, same one-time manual step
+        # already required for the other two targets.
+        com.apple.security.application-groups:
+          - group.com.sustainapp.glp1
+
+  SustainTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: SustainTests
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: "YES"
+        SWIFT_VERSION: "5.0"
+        TARGETED_DEVICE_FAMILY: "1"
+    dependencies:
+      - target: Sustain
+
+schemes:
+  Sustain:
+    build:
+      targets:
+        Sustain: all
+        SustainWidgetExtension: all
+        SustainWatch: all
+        SustainTests: [test]
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets:
+        - SustainTests
+    profile:
+      config: Release
+    analyze:
+      config: Debug
+    archive:
+      config: Release
+  Sustain-ReleaseRun:
+    build:
+      targets:
+        Sustain: all
+    run:
+      config: Release
+    archive:
+      config: Release
+  # Added 2026-08-02: the `Sustain` scheme above builds `SustainWatch` as a
+  # dependency (so the iPhone app has it embedded), but that alone doesn't
+  # give Xcode a scheme whose *Run* action targets the Watch itself — a real
+  # gap found live: the paired Watch showed zero errors/warnings and zero
+  # installed apps in Xcode's Devices window, and never appeared as a run
+  # destination at all. This dedicated scheme is what makes "select my Apple
+  # Watch, press Run" actually install and launch SustainWatch on it directly,
+  # independent of whatever combined-destination detection did or didn't
+  # happen for the main `Sustain` scheme.
+  SustainWatch:
+    build:
+      targets:
+        SustainWatch: all
+    run:
+      config: Debug
+    profile:
+      config: Release
+    analyze:
+      config: Debug
+    archive:
+      config: Release

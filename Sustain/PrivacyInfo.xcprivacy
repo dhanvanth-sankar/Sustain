@@ -1,0 +1,281 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!--
+	Required-reason API declarations. Sustain's own code only touches one
+	category directly: UserDefaults, via @AppStorage (weightUnitRaw,
+	weeklySummaryText/GeneratedAt, ReminderSettingsView's protein check-in
+	prefs) and EntitlementManager's isPremium/hasMaintenanceProgram flags.
+	Reason CA92.1 ("access info from the same app") is correct here — there's
+	no App Group, App Clip, or extension sharing these defaults with anything
+	else. No FileManager, disk-space, or system-uptime APIs are called
+	directly anywhere in the app. If a future SDK (Supabase, RevenueCat,
+	TelemetryDeck) is added, check whether it ships its own privacy manifest
+	or requires additional entries here — third-party SDKs are a common
+	source of manifest omissions that get caught at review, not before.
+
+	[EXTENDED 2026-09] `PatternNoticeStore.swift` (the "Pip Notices" feature —
+	see `Services/PatternDetectionEngine.swift`) added two more UserDefaults
+	keys (seen pattern instances, muted pattern types). Still covered by this
+	same CA92.1 declaration, not a new entry: same category (UserDefaults),
+	same reason (same-app access only), no new API surface. Worth calling out
+	explicitly anyway, per this comment's own standing instruction above, so
+	a future reader confirms that rather than assuming it. This feature does
+	not otherwise touch anything requiring a declaration here — the pattern
+	detection itself is pure on-device arithmetic over data already logged,
+	sends nothing anywhere, and the resulting notification is a plain local
+	`UNUserNotificationCenter` request, already covered by the same
+	notification permission every existing reminder in this app already uses.
+	-->
+	<key>NSPrivacyAccessedAPITypes</key>
+	<array>
+		<dict>
+			<key>NSPrivacyAccessedAPIType</key>
+			<string>NSPrivacyAccessedAPICategoryUserDefaults</string>
+			<key>NSPrivacyAccessedAPITypeReasons</key>
+			<array>
+				<string>CA92.1</string>
+			</array>
+		</dict>
+	</array>
+
+	<!--
+	Sustain does not track users across apps or websites, and never calls
+	ATTrackingManager (no NSUserTrackingUsageDescription in Info.plist either —
+	that key was removed since the app never actually requests tracking
+	authorization; keeping an unused ATT prompt string was flagged by App
+	Store Connect as inconsistent with these "no tracking" answers at
+	submission time). No tracking domains, because there is no tracking.
+	-->
+	<key>NSPrivacyTracking</key>
+	<false/>
+	<key>NSPrivacyTrackingDomains</key>
+	<array/>
+
+	<!--
+	Mirrors what must also be entered in App Store Connect's privacy
+	questionnaire — this manifest doesn't replace that, it documents it.
+
+	[CORRECTED 2026-07-30 — this comment previously said "never leaves the
+	device today (no backend exists yet)," which stopped being true the
+	moment the Supabase Edge Function AI proxy shipped and was never updated
+	here, even though the in-app Settings copy and the published privacy
+	policy both were (see CHANGELOG.md's Guideline 1.4.1/3.1.2(c) fix entry).
+	A stale privacy-manifest comment is low-risk on its own — reviewers look
+	at the declared data types below and the App Store Connect questionnaire,
+	not code comments — but leaving an incorrect "nothing leaves the device"
+	claim sitting in the one file whose entire job is describing data
+	practices was exactly the kind of drift that caused this app's only two
+	real rejections (1.4.1, 3.1.2(c)): documentation quietly falling out of
+	sync with what the shipped app actually does. Fixed here so it can't be
+	the source of a future Guideline 5.1.1 mismatch (declared privacy
+	practices vs. observed behavior) if anyone edits this file by reading
+	its own comments instead of the current code.]
+
+	[CORRECTED AGAIN, 2026-08-01, caught in a pre-2.0-submission audit — this
+	is exactly the "revisit this" trigger the paragraph below used to warn
+	about, and it wasn't revisited when it should have been: Sign in with
+	Apple + Supabase account sync shipped in the 2026-07-30 session (see
+	CHANGELOG.md's "Sign in with Apple + Supabase account sync" entry and
+	APP_REVIEW_NOTES.md §7-8), and this file was never updated for it. Two
+	real gaps existed until now: (1) the paragraph below still claimed health
+	data "never leaves the device through any Sustain-operated storage,"
+	which stopped being true the moment sync shipped — Supabase IS
+	Sustain-operated storage, and every log type now syncs there by design,
+	for every user, not as an opt-in extra. (2) Signing in collects an email
+	address (real or Apple's private-relay address) and creates an account
+	identifier (a Supabase Auth user ID) — neither was declared as a
+	collected data type at all. Both fixed below: the Health entry's purpose
+	list now includes account-sync functionality explicitly in this comment,
+	and two new dict entries (Email Address, User ID) cover the sign-in data
+	itself. APP_REVIEW_NOTES.md §7 already flagged that the App Store Connect
+	privacy questionnaire needs the same update — this file alone does not
+	satisfy that; both need to match.]
+
+	Health data (weight, dietary protein, dose/side-effect logs, medication
+	plan) is linked to the user's own account and now genuinely leaves the
+	device for two reasons: account sync (Supabase, so it's available again
+	after a reinstall or on a second device — required for every signed-in
+	user, not opt-in, since Sign in with Apple is mandatory app-wide) and, for
+	two specific opt-in features, forwarding to a third-party AI provider
+	(Anthropic, via a stateless Supabase Edge Function proxy that forwards the
+	request and stores nothing itself) — a user-chosen food photo for the AI
+	protein estimate, and a small set of already-aggregated weekly figures
+	(not raw logs) for the weekly AI recap. Only the AI features are
+	user-initiated per use; account sync runs automatically for every
+	signed-in user as core app functionality (that's what "required" means
+	for the Health entry's purpose below), not a separate opt-in toggle. See
+	the Photos/Videos entry below for the food-photo case specifically.
+	Email Address and User ID are new entries below for the Sign in with
+	Apple + Supabase account itself — both required, since account sync
+	fundamentally requires an identity to sync to.
+	-->
+	<key>NSPrivacyCollectedDataTypes</key>
+	<array>
+		<dict>
+			<key>NSPrivacyCollectedDataType</key>
+			<string>NSPrivacyCollectedDataTypeHealth</string>
+			<key>NSPrivacyCollectedDataTypeLinked</key>
+			<true/>
+			<key>NSPrivacyCollectedDataTypeTracking</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypePurposes</key>
+			<array>
+				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+			</array>
+		</dict>
+		<!--
+		[UPDATED 2026-08-03 — two new photo-using features shipped since this
+		entry was written, and it was reviewed against both rather than
+		assumed still correct.]
+
+		This entry stays exactly as it was, and here is why, per feature:
+
+		1. AI protein estimate (unchanged, the original reason for this
+		   entry): a user-chosen food photo is transmitted off-device to the
+		   Anthropic proxy for processing and is not stored by Sustain. That
+		   is "collected" under Apple's definition, hence this entry.
+		2. Lab report import (new): same shape as #1 — a user-chosen photo of
+		   a lab report is transmitted to the same proxy for transcription,
+		   never stored by Sustain (only the transcribed numbers the user
+		   confirms are saved, as text, locally). Already covered by this
+		   entry; no new dict needed, since it's the same data type, the same
+		   linkage, and the same App Functionality purpose.
+		3. Progress photos (new): these are stored ON DEVICE ONLY, in the
+		   app's own SwiftData store, and are deliberately NOT synced to
+		   Supabase and never transmitted anywhere (see
+		   `ProgressPhotosView`'s header comment for that decision). Data
+		   that never leaves the device is not "collected" under Apple's
+		   definition, so this feature adds no new declaration here. If
+		   progress-photo sync is ever built, this entry must be revisited:
+		   photos would then become linked, stored, Sustain-operated data,
+		   which is a materially different declaration than the transient
+		   processing above.
+		-->
+		<dict>
+			<key>NSPrivacyCollectedDataType</key>
+			<string>NSPrivacyCollectedDataTypePhotosorVideos</string>
+			<key>NSPrivacyCollectedDataTypeLinked</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypeTracking</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypePurposes</key>
+			<array>
+				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+			</array>
+		</dict>
+		<!--
+		Added 2026-08-01 alongside the sign-in/sync privacy pass above.
+		Sign in with Apple can supply either the user's real email or an
+		Apple-generated private-relay address (Sustain never sees which);
+		either way it's collected and linked to the account for
+		authentication and sync, not for tracking or advertising.
+
+
+		[UPDATED 2026-08-01, same day, once "Continue with Google" shipped
+		alongside Apple.] This entry already covers Google too - it's the same
+		data category (an email address, linked to the account, for
+		authentication/sync) regardless of which provider supplies it, so no
+		new dict was needed here. Two things worth confirming, not because
+		either changed anything in this file, but because they're exactly the
+		kind of provider-specific detail that could get missed:
+		(1) GoogleSignIn-iOS ships its own bundled privacy manifest inside its
+		xcframework; Xcode aggregates it into the app's final privacy report
+		automatically, so it needs no manual entries here.
+		(2) Google's SDK can also return a display name and profile photo URL
+		on the `GIDGoogleUser` it hands back (`result.user.profile?.name`/
+		`imageURL`) - `AuthManager.completeGoogleSignIn`/`linkGoogleIdentity`
+		deliberately never reads either, only `idToken`, `accessToken`, and
+		`profile?.email`, so no Name or Photo data type entry is needed. If a
+		future change starts reading either of those two fields, this file and
+		the App Store Connect questionnaire both need a new entry before that
+		ships, not after.
+		-->
+		<dict>
+			<key>NSPrivacyCollectedDataType</key>
+			<string>NSPrivacyCollectedDataTypeEmailAddress</string>
+			<key>NSPrivacyCollectedDataTypeLinked</key>
+			<true/>
+			<key>NSPrivacyCollectedDataTypeTracking</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypePurposes</key>
+			<array>
+				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+			</array>
+		</dict>
+		<!--
+		The Supabase Auth user ID (a UUID) every synced record is keyed to —
+		this is the actual mechanism Row Level Security uses to keep one
+		person's data isolated from everyone else's (see
+		supabase/schema/account_sync.sql). Required for the app to function
+		at all once signed in, not optional or tracking-related.
+		-->
+		<dict>
+			<key>NSPrivacyCollectedDataType</key>
+			<string>NSPrivacyCollectedDataTypeUserID</string>
+			<key>NSPrivacyCollectedDataTypeLinked</key>
+			<true/>
+			<key>NSPrivacyCollectedDataTypeTracking</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypePurposes</key>
+			<array>
+				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+			</array>
+		</dict>
+		<!--
+		Found in a pre-2.2-submission audit, exactly the kind of drift this
+		file's own top comment warns about ("if a future SDK is added, check
+		whether it ... requires additional entries here"). `AIFeatureEngagementTracker.swift`
+		(added earlier this session, see its own header comment) pushes
+		per-AI-feature usage counts and last-used timestamps to RevenueCat as
+		subscriber attributes — deliberately not a new third-party SDK
+		(RevenueCat is already integrated for billing and already covered by
+		the privacy policy), but it IS a new category of data leaving the
+		device: which AI features a subscriber uses and when, not just
+		purchase/billing state. This was never declared here or in the privacy
+		policy until this pass. Linked (tied to the subscriber's RevenueCat/
+		account identity, which is how a retention cohort works at all) but
+		explicitly not tracking (never shared with a data broker or used for
+		cross-app/cross-site ad targeting — see `AIFeatureEngagementTracker`'s
+		own doc comment for the full "why RevenueCat, not a new SDK" reasoning).
+		`Documentation/privacy-policy.md` and the App Store Connect privacy
+		questionnaire both need the matching update — this file alone
+		documents the practice, it doesn't populate either of those.
+
+		[EXTENDED 2026-08-12] This same entry now also covers a second,
+		separate data flow: `AnalyticsManager.swift`'s TelemetryDeck
+		integration (see that file's header comment for the full reasoning —
+		built to close PROJECT_HANDOFF.md's long-flagged "TelemetryDeck or
+		any analytics — still not started" gap). It's declared as the same
+		data type rather than a second dict because it has the identical
+		shape: linked (correlated to the account ID, not anonymous-forever —
+		see AnalyticsManager's "why the account ID, not a fresh UUID"
+		reasoning), not tracking (no ad identifiers, no cross-app/cross-site
+		sharing, no data broker), same two purposes (App Functionality +
+		Analytics). What's new in *this* flow specifically: onboarding-step
+		reach/completion, app-open events (for retention), paywall-view
+		events (which screen/feature triggered it), and AI-feature
+		attempt/completion signals — screen and feature *names* only, never
+		message content, photos, health values, or any logged data itself.
+		A genuinely different vendor from RevenueCat above, so
+		`Documentation/privacy-policy.md`'s "Analytics" paragraph names both
+		by name rather than treating this as covered by the existing
+		RevenueCat-usage-analytics language.
+		-->
+		<dict>
+			<key>NSPrivacyCollectedDataType</key>
+			<string>NSPrivacyCollectedDataTypeProductInteraction</string>
+			<key>NSPrivacyCollectedDataTypeLinked</key>
+			<true/>
+			<key>NSPrivacyCollectedDataTypeTracking</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypePurposes</key>
+			<array>
+				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+				<string>NSPrivacyCollectedDataTypePurposeAnalytics</string>
+			</array>
+		</dict>
+	</array>
+</dict>
+</plist>

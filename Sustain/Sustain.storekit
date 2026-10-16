@@ -1,0 +1,99 @@
+{
+  "identifier" : "8F4E1A2B",
+  "nonRenewingSubscriptions" : [
+
+  ],
+  "products" : [
+    {
+      "displayPrice" : "19.99",
+      "familyShareable" : false,
+      "internalID" : "B9017EF6",
+      "localizations" : [
+        {
+          "description" : "One-time unlock: a weight-maintenance range and a prescriber conversation guide for phase two.",
+          "displayName" : "Maintenance Program",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "com.sustainapp.glp1.maintenance",
+      "referenceName" : "Maintenance Program",
+      "type" : "NonConsumable"
+    }
+  ],
+  "settings" : {
+
+  },
+  "subscriptionGroups" : [
+    {
+      "id" : "DDB99185",
+      "localizations" : [
+
+      ],
+      "name" : "Sustain+",
+      "subscriptions" : [
+        {
+          "adHocOffers" : [
+
+          ],
+          "codeOffers" : [
+
+          ],
+          "displayPrice" : "7.99",
+          "familyShareable" : false,
+          "groupNumber" : 1,
+          "internalID" : "C4E312DC",
+          "introductoryOffer" : {
+            "internalID" : "DC70E07C",
+            "paymentMode" : "free",
+            "subscriptionPeriod" : "P1W"
+          },
+          "localizations" : [
+            {
+              "description" : "Full history, AI photo protein estimate, side-effect pattern reports, and weekly AI recap.",
+              "displayName" : "Sustain+ Monthly",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "com.sustainapp.glp1.monthly",
+          "recurringSubscriptionPeriod" : "P1M",
+          "referenceName" : "Sustain+ Monthly",
+          "subscriptionGroupID" : "DDB99185",
+          "type" : "RecurringSubscription"
+        },
+        {
+          "adHocOffers" : [
+
+          ],
+          "codeOffers" : [
+
+          ],
+          "displayPrice" : "59.99",
+          "familyShareable" : false,
+          "groupNumber" : 1,
+          "internalID" : "41D62732",
+          "introductoryOffer" : {
+            "internalID" : "8D67D716",
+            "paymentMode" : "free",
+            "subscriptionPeriod" : "P1M"
+          },
+          "localizations" : [
+            {
+              "description" : "Full history, AI photo protein estimate, side-effect pattern reports, and weekly AI recap. Save over 35% vs. monthly.",
+              "displayName" : "Sustain+ Annual",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "com.sustainapp.glp1.annual",
+          "recurringSubscriptionPeriod" : "P1Y",
+          "referenceName" : "Sustain+ Annual",
+          "subscriptionGroupID" : "DDB99185",
+          "type" : "RecurringSubscription"
+        }
+      ]
+    }
+  ],
+  "version" : {
+    "major" : 2,
+    "minor" : 0
+  }
+}

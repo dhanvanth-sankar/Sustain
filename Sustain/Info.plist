@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>$(DEVELOPMENT_LANGUAGE)</string>
+	<key>CFBundleDisplayName</key>
+	<string>Sustain</string>
+	<key>CFBundleExecutable</key>
+	<string>$(EXECUTABLE_NAME)</string>
+	<key>CFBundleIdentifier</key>
+	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>$(PRODUCT_NAME)</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>2.4</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>$(GOOGLE_REVERSED_CLIENT_ID)</string>
+			</array>
+		</dict>
+	</array>
+	<key>CFBundleVersion</key>
+	<string>15</string>
+	<key>GoogleClientID</key>
+	<string>$(GOOGLE_CLIENT_ID)</string>
+	<key>GoogleServerClientID</key>
+	<string>$(GOOGLE_SERVER_CLIENT_ID)</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
+	<key>NSCameraUsageDescription</key>
+	<string>Sustain uses your camera for four optional things you choose to do: estimate protein from a photo of your food, save a progress photo, read the values off a lab report, and estimate body fat from two photos. Body-fat estimate photos are never saved.</string>
+	<key>NSHealthShareUsageDescription</key>
+	<string>Sustain reads your weight, dietary protein, body fat percentage, lean mass, sleep, heart rate variability, and resting heart rate from Health so your trends stay accurate without double entry.</string>
+	<key>NSHealthUpdateUsageDescription</key>
+	<string>Sustain writes the weight and protein you log here to Health so your other health apps stay in sync.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Sustain uses your microphone so you can dictate notes instead of typing them.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Sustain reads photos you pick from your library for three optional things you choose to do: estimate a meal's protein, save a progress photo, and read the values off a lab report.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Sustain transcribes your speech to fill in notes fields and the Ask Sustain chat, on-device where your iPhone supports it.</string>
+	<key>NSSupportsLiveActivities</key>
+	<true/>
+	<key>RevenueCatAPIKey</key>
+	<string>$(REVENUECAT_API_KEY)</string>
+	<key>SupabaseAnonKey</key>
+	<string>$(SUPABASE_ANON_KEY)</string>
+	<key>SupabaseFunctionURL</key>
+	<string>$(SUPABASE_FUNCTION_URL)</string>
+	<key>SupabaseProjectURL</key>
+	<string>$(SUPABASE_PROJECT_URL)</string>
+	<key>TelemetryDeckAppID</key>
+	<string>$(TELEMETRYDECK_APP_ID)</string>
+	<key>UILaunchScreen</key>
+	<dict>
+		<key>UIColorName</key>
+		<string>LaunchBackground</string>
+	</dict>
+	<key>UIRequiresFullScreen</key>
+	<true/>
+	<key>UISupportedInterfaceOrientations</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+	</array>
+	<key>UISupportedInterfaceOrientations~ipad</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+		<string>UIInterfaceOrientationPortraitUpsideDown</string>
+		<string>UIInterfaceOrientationLandscapeLeft</string>
+		<string>UIInterfaceOrientationLandscapeRight</string>
+	</array>
+</dict>
+</plist>

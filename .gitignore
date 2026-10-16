@@ -1,0 +1,15 @@
+# Secrets — never commit real API keys or credential files
+Secrets.xcconfig
+*.p8
+*.mobileprovision
+*.p12
+
+# Xcode / build artifacts
+*.xcodeproj/
+DerivedData/
+build/
+*.xcuserstate
+xcuserdata/
+.DS_Store
+*.swiftpm
+.build/
